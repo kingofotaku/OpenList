@@ -2,9 +2,11 @@ package fs
 
 import (
 	"context"
+	"path"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/driver"
+	"github.com/OpenListTeam/OpenList/v4/internal/errs"
 	"github.com/OpenListTeam/OpenList/v4/internal/model"
 	"github.com/OpenListTeam/OpenList/v4/internal/op"
 	"github.com/OpenListTeam/OpenList/v4/internal/task"
@@ -28,7 +30,15 @@ func rename(ctx context.Context, srcPath, dstName string, skipHook ...bool) erro
 	if utils.IsBool(skipHook...) {
 		ctx = context.WithValue(ctx, conf.SkipHookKey, struct{}{})
 	}
-	return op.Rename(ctx, storage, srcActualPath, dstName)
+	err = op.Rename(ctx, storage, srcActualPath, dstName)
+	if errs.IsObjectNotFound(err) {
+		// A file uploaded moments ago can still be missing from the cached parent
+		// listing; refresh it once and retry before giving up.
+		if _, lerr := List(ctx, path.Dir(srcPath), &ListArgs{Refresh: true, NoLog: true}); lerr == nil {
+			err = op.Rename(ctx, storage, srcActualPath, dstName)
+		}
+	}
+	return err
 }
 
 func remove(ctx context.Context, path string) error {

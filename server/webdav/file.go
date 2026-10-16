@@ -55,6 +55,14 @@ func moveFiles(ctx context.Context, src, dst string, overwrite bool) (status int
 	if !common.CanWrite(user, srcMeta, srcDir) || !common.CanWrite(user, dstMeta, dstDir) {
 		return http.StatusForbidden, nil
 	}
+	if overwrite {
+		// RFC 4918 9.9.3: with Overwrite: T the destination is removed first.
+		// Some backends (e.g. Quark) refuse to rename onto an existing name.
+		// op.Remove ignores a missing object, so this is a no-op most of the time.
+		if err = fs.Remove(ctx, dst); err != nil {
+			return http.StatusInternalServerError, err
+		}
+	}
 	if srcDir == dstDir {
 		err = fs.Rename(ctx, src, dstName)
 	} else {
