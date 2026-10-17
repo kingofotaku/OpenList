@@ -228,7 +228,7 @@ type UpPreResp struct {
 			CallbackBody string `json:"callbackBody"`
 		} `json:"callback"`
 		FormatType string `json:"format_type"`
-		Size       int    `json:"size"`
+		Size       int64  `json:"size"` // 32-bit int overflows when the server echoes a >2GiB file size
 		AuthInfo   string `json:"auth_info"`
 	} `json:"data"`
 	Metadata struct {
